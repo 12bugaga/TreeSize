@@ -8,12 +8,12 @@
         mc:Ignorable="d"
         Title="TreeSize" Height="450" Width="800">
     <Window.DataContext>
-        <local:MyViewModel />
+        <local:ViewItems />
     </Window.DataContext>
 
     <Grid>
 
-        <TreeView x:Name="FolderView" Margin="0,33,10,0" ItemsSource="{Binding ViewItems}">
+        <TreeView x:Name="FolderView" Margin="0,33,10,0" ItemsSource="{Binding ViewItem}">
             <TreeView.ItemTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Path =ModelItems}">
                     <Grid Width="650">

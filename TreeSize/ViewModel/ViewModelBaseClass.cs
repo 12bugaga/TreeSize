@@ -1,33 +1,28 @@
-﻿using Microsoft.WindowsAPICodePack.Dialogs;
-using System;
-using System.Collections.Generic;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Media.Imaging;
-using System.Windows.Threading;
-using TreeSize;
 
 namespace TreeSize.ViewModel
 {
-    public class MyViewModel : INotifyPropertyChanged
+    public class ViewItems : INotifyPropertyChanged
     {
         protected ObservableCollection<ModelItem> _modelItems;
+        protected ConcurrentStack<int> concurrentStack;
 
-        public MyViewModel()
+        public ViewItems()
         {
             _modelItems = new ObservableCollection<ModelItem>();
+            concurrentStack = new ConcurrentStack<int>();
         }
 
-        public ObservableCollection<ModelItem> ViewItems
+        public ObservableCollection<ModelItem> ViewItem
         {
             get { return _modelItems; }
         }
@@ -45,32 +40,53 @@ namespace TreeSize.ViewModel
         }
 
 
+        public int Count()
+        {
+            return ViewItem.Count;
+        }
+
         delegate void addItem(ModelItem item);
-        private void AddItem (ModelItem item)
+        public void AddItem(ModelItem item)
         {
             if (Application.Current.Dispatcher.CheckAccess())
-                ViewItems.Add(item);
+                ViewItem.Add(item);
             else
-            { 
+            {
                 addItem add = AddItem;
                 Application.Current.Dispatcher.BeginInvoke(add, item);
             }
         }
-        
-        delegate void changeItem(int number, ModelItem item);
-        private void ChangeItem(int numberItem, ModelItem item)
+
+        delegate void changeItem(ConcurrentStack<ViewItems> stack, ModelItem item);
+        public void ChangeItem(ConcurrentStack<ViewItems> stack, ModelItem item)
         {
             if (Application.Current.Dispatcher.CheckAccess())
             {
-                ViewItems.Remove(ViewItems[numberItem]);
-                ViewItems.Add(item);
+                ViewItems number;
+                stack.TryPop(out number);
+                ViewItem.Remove(number.ViewItem[number.Count() - 1]);
+                ViewItem.Add(item);
             }
 
             else
             {
                 changeItem Change = ChangeItem;
-                Application.Current.Dispatcher.BeginInvoke(Change, numberItem, item);
+                Application.Current.Dispatcher.BeginInvoke(Change, stack, item);
             }
+        }
+    }
+
+
+    public class MyViewModel
+    {
+
+        protected ConcurrentStack<ViewItems> concurrentStack = new ConcurrentStack<ViewItems>();
+        protected ConcurrentStack<int> concurrentStack1 = new ConcurrentStack<int>();
+
+        ViewItems viewItems;
+        public MyViewModel(ViewItems _viewItems)
+        {
+            viewItems = _viewItems;
         }
 
         public async void GetItemFromPathAsync(string path, CancellationToken token)
@@ -104,7 +120,7 @@ namespace TreeSize.ViewModel
                         Status = "Waiting...",
                         Image = GetImage(df.FullName)
                     });
-                    AddItem(item);
+                    viewItems.AddItem(item);
 
                     item = (new ModelItem
                     {
@@ -115,9 +131,11 @@ namespace TreeSize.ViewModel
                         ModelItems = GetChildrenItem(df.FullName, token),
                         VolumeMemory = GetVolMem(df.FullName, ref catalogSize),
                     });
-                    ChangeItem(ViewItems.Count-1, item);
+
+                    concurrentStack.Push(viewItems);
+                    viewItems.ChangeItem(concurrentStack, item);
                 }
-                
+
                 // Cycle for all files
                 foreach (FileInfo f in fi)
                 {
@@ -131,7 +149,7 @@ namespace TreeSize.ViewModel
                         Image = GetImage(f.FullName),
                         VolumeMemory = f.Length,
                     };
-                    AddItem(item);
+                    viewItems.AddItem(item);
                 }
             }
 
@@ -145,13 +163,13 @@ namespace TreeSize.ViewModel
                     Status = "Not available",
                     VolumeMemory = -1
                 };
-                AddItem(item);
+                viewItems.AddItem(item);
             }
         }
 
         private ObservableCollection<ModelItem> GetChildrenItem(string path, CancellationToken token)
         {
-            ObservableCollection<ModelItem> childrenItems= new ObservableCollection<ModelItem>();
+            ObservableCollection<ModelItem> childrenItems = new ObservableCollection<ModelItem>();
             try
             {
                 DirectoryInfo di = new DirectoryInfo(path);
@@ -206,7 +224,7 @@ namespace TreeSize.ViewModel
             return childrenItems;
         }
 
-        private double  GetVolMem(string path, ref double catalogSize)
+        private double GetVolMem(string path, ref double catalogSize)
         {
             try
             {
@@ -268,8 +286,5 @@ namespace TreeSize.ViewModel
 
             return _image;
         }
-
-        
     }
-
 }

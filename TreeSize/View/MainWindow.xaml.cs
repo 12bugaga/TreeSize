@@ -1,17 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Globalization;
-using System.IO;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Media.Imaging;
+﻿using System.Windows;
 using TreeSize.ViewModel;
-using Microsoft.Win32;
 using Microsoft.WindowsAPICodePack.Dialogs;
-using System.Threading.Tasks;
-using System.Windows.Threading;
 using System.Threading;
 
 namespace TreeSize
@@ -32,7 +21,9 @@ namespace TreeSize
                 IsFolderPicker = true
             };
             string choiceFolder;
-            MyViewModel _model = new MyViewModel();
+            ViewItems _model = new ViewItems();
+
+            MyViewModel start = new MyViewModel(_model);
             if (openFileDlg.ShowDialog() == CommonFileDialogResult.Ok)
             {
                 choiceFolder = openFileDlg.FileName;
@@ -40,7 +31,7 @@ namespace TreeSize
                 DataContext = _model;
 
                 cts = new CancellationTokenSource();
-                _model.GetItemFromPathAsync(choiceFolder, cts.Token);
+                start.GetItemFromPathAsync(choiceFolder, cts.Token);
                 CancelButton.IsEnabled = true;
             }
         }
